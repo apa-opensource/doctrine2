@@ -102,6 +102,11 @@ class UnitOfWork implements PropertyChangedListener
     private $entityIdentifiers = array();
 
     /**
+     * @var array
+     */
+    private $unmanagedToManagedIdentifiers = array();
+
+    /**
      * Map of the original entity data of managed entities.
      * Keys are object ids (spl_object_hash). This is used for calculating changesets
      * at commit time.
@@ -1526,7 +1531,11 @@ class UnitOfWork implements PropertyChangedListener
         $oid = spl_object_hash($entity);
 
         if ( ! isset($this->entityIdentifiers[$oid])) {
-            return false;
+            if (isset($this->unmanagedToManagedIdentifiers[$oid])) {
+                $oid = $this->unmanagedToManagedIdentifiers[$oid];
+            } else {
+                return false;
+            }
         }
 
         $classMetadata = $this->em->getClassMetadata(get_class($entity));
@@ -1736,6 +1745,8 @@ class UnitOfWork implements PropertyChangedListener
                 $associatedId        = $this->getEntityIdentifier($idValue);
 
                 $flatId[$idField] = $associatedId[$targetClassMetadata->identifier[0]];
+            } else {
+                $flatId[$idField] = $idValue;
             }
         }
 
@@ -1822,6 +1833,8 @@ class UnitOfWork implements PropertyChangedListener
                         $managedCopy->__load();
                     }
                 }
+
+                $this->unmanagedToManagedIdentifiers[$oid] = spl_object_hash($managedCopy);
             }
 
             if ($class->isVersioned) {
@@ -1980,6 +1993,7 @@ class UnitOfWork implements PropertyChangedListener
                     $this->entityUpdates[$oid],
                     $this->entityDeletions[$oid],
                     $this->entityIdentifiers[$oid],
+                    $this->unmanagedToManagedIdentifiers[$oid],
                     $this->entityStates[$oid],
                     $this->originalEntityData[$oid]
                 );
@@ -2345,6 +2359,7 @@ class UnitOfWork implements PropertyChangedListener
         if ($entityName === null) {
             $this->identityMap =
             $this->entityIdentifiers =
+            $this->unmanagedToManagedIdentifiers =
             $this->originalEntityData =
             $this->entityChangeSets =
             $this->entityStates =
@@ -2849,7 +2864,11 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function getEntityIdentifier($entity)
     {
-        return $this->entityIdentifiers[spl_object_hash($entity)];
+        $entityHash = spl_object_hash($entity);
+        if (isset($this->unmanagedToManagedIdentifiers[$entityHash]))
+            return $this->entityIdentifiers[$this->unmanagedToManagedIdentifiers[$entityHash]];
+
+        return $this->entityIdentifiers[$entityHash];
     }
 
     /**
@@ -2875,7 +2894,7 @@ class UnitOfWork implements PropertyChangedListener
 
         return isset($values[$class->identifier[0]]) ? $values[$class->identifier[0]] : null;
     }
- 
+
     /**
      * Tries to find an entity with the given identifier in the identity map of
      * this UnitOfWork.
