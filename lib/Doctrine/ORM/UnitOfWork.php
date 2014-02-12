@@ -1862,14 +1862,18 @@ class UnitOfWork implements PropertyChangedListener
                 $prop->setAccessible(true);
                 if ( ! isset($class->associationMappings[$name])) {
                     if ( ! $class->isIdentifier($name)) {
-                        $prop->setValue($managedCopy, $prop->getValue($entity));
+                        //@TODO Make this more configurable
+                        $valueNewCopy     = $prop->getValue($entity);
+                        if (!empty($valueNewCopy)) {
+                            $prop->setValue($managedCopy, $valueNewCopy);
+                        }
                     }
                 } else {
                     $assoc2 = $class->associationMappings[$name];
                     if ($assoc2['type'] & ClassMetadata::TO_ONE) {
                         $other = $prop->getValue($entity);
                         if ($other === null) {
-                            $prop->setValue($managedCopy, null);
+                            //$prop->setValue($managedCopy, null);
                         } else if ($other instanceof Proxy && !$other->__isInitialized__) {
                             // do not merge fields marked lazy that have not been fetched.
                             continue;
@@ -1885,7 +1889,6 @@ class UnitOfWork implements PropertyChangedListener
                                     $this->registerManaged($other, $relatedId, array());
                                 }
                             }
-
                             $prop->setValue($managedCopy, $other);
                         }
                     } else {
@@ -1893,6 +1896,11 @@ class UnitOfWork implements PropertyChangedListener
                         if ($mergeCol instanceof PersistentCollection && !$mergeCol->isInitialized()) {
                             // do not merge fields marked lazy that have not been fetched.
                             // keep the lazy persistent collection of the managed copy.
+                            continue;
+                        }
+
+                        //@TODO Dont overvrite existing relations with nothing
+                        if (count($mergeCol) == 0) {
                             continue;
                         }
 
