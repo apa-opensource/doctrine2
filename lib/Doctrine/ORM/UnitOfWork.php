@@ -1864,7 +1864,7 @@ class UnitOfWork implements PropertyChangedListener
                     if ( ! $class->isIdentifier($name)) {
                         //@TODO Make this more configurable
                         $valueNewCopy     = $prop->getValue($entity);
-                        if (!empty($valueNewCopy)) {
+                        if (!is_null($valueNewCopy)) {
                             $prop->setValue($managedCopy, $valueNewCopy);
                         }
                     }
@@ -1873,6 +1873,7 @@ class UnitOfWork implements PropertyChangedListener
                     if ($assoc2['type'] & ClassMetadata::TO_ONE) {
                         $other = $prop->getValue($entity);
                         if ($other === null) {
+                            //@TODO Make this more configurable
                             //$prop->setValue($managedCopy, null);
                         } else if ($other instanceof Proxy && !$other->__isInitialized__) {
                             // do not merge fields marked lazy that have not been fetched.
